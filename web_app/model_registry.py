@@ -53,15 +53,38 @@ class ModelRegistry:
         if not model_path.exists():
             return False, "Model folder not found"
 
-        files = [path.name for path in model_path.rglob("*") if path.is_file()]
-        if not files:
+        file_paths = [path for path in model_path.rglob("*") if path.is_file()]
+        if not file_paths:
             return False, "Model folder is empty"
 
-        has_weights = any(name.endswith((".safetensors", ".bin")) for name in files)
-        has_config = any(name in {"config.json", "tokenizer.json"} for name in files)
+        file_names = [path.name for path in file_paths]
+        weight_suffixes = (
+            ".safetensors",
+            ".bin",
+            ".gguf",
+            ".mlx",
+            ".npz",
+            ".pt",
+            ".pth",
+        )
+        has_weight_suffix = any(name.endswith(weight_suffixes) for name in file_names)
+        has_large_artifact = False
+        for path in file_paths:
+            # Ignore hub cache metadata files under local_dir/.cache.
+            if ".cache" in path.parts:
+                continue
+            try:
+                if path.stat().st_size >= 50 * 1024 * 1024:
+                    has_large_artifact = True
+                    break
+            except OSError:
+                continue
+
+        has_weights = has_weight_suffix or has_large_artifact
+        has_config = any(name in {"config.json", "tokenizer.json"} for name in file_names)
 
         if not has_weights:
-            return False, "Model weights missing (.safetensors/.bin)"
+            return False, "Model weights missing (expected weight files or large model artifacts)"
         if not has_config:
             return False, "Model config/tokenizer files missing"
 

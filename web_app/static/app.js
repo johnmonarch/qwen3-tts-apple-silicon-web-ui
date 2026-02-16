@@ -362,7 +362,7 @@ function pollDownload(jobId) {
       state.downloadPollTimer = null;
       setStatus("downloadStatus", error.message, true);
     }
-  }, 1200);
+  }, 500);
 }
 
 function renderVoiceOptions() {
