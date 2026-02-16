@@ -3,16 +3,21 @@ models/
 
 # Virtual environment
 .venv/
+.worker-venv/
 
 # Temp files
 temp_*/
 temp_convert_*.wav
+.worker.pid
+.worker.log
 
 # User data (keep folder structure)
 voices/*
 !voices/.gitkeep
 outputs/*
 !outputs/.gitkeep
+data/*
+!data/.gitkeep
 
 # System files
 .DS_Store

@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Qwen3 TTS Local Web App</title>
+    <link rel="stylesheet" href="/static/style.css" />
+  </head>
+  <body>
+    <div class="layout">
+      <aside class="sidebar">
+        <h1>Qwen3 TTS</h1>
+        <p class="muted">Local-only app for Apple Silicon</p>
+        <nav>
+          <button class="tab-btn active" data-tab="generate">Generate</button>
+          <button class="tab-btn" data-tab="models">Models</button>
+          <button class="tab-btn" data-tab="voices">Voices</button>
+          <button class="tab-btn" data-tab="outputs">Outputs</button>
+          <button class="tab-btn" data-tab="settings">Settings</button>
+        </nav>
+        <div class="status" id="healthStatus">Checking runtime...</div>
+      </aside>
+
+      <main class="content">
+        <section class="tab active" id="tab-generate">
+          <h2>Generate</h2>
+          <div class="card">
+            <div class="grid two">
+              <label>
+                Mode
+                <select id="ttsMode">
+                  <option value="custom">Custom Voice</option>
+                  <option value="design">Voice Design</option>
+                  <option value="clone">Voice Clone</option>
+                </select>
+              </label>
+              <label>
+                Model Set
+                <select id="ttsModel"></select>
+              </label>
+            </div>
+
+            <div id="modeCustom" class="mode-panel">
+              <div class="grid three">
+                <label>
+                  Speaker
+                  <input id="ttsVoice" value="Vivian" />
+                </label>
+                <label>
+                  Speed
+                  <input id="ttsSpeed" type="number" step="0.1" min="0.5" max="2" value="1.0" />
+                </label>
+                <label>
+                  Emotion/Style
+                  <input id="ttsInstructCustom" value="Normal tone" />
+                </label>
+              </div>
+            </div>
+
+            <div id="modeDesign" class="mode-panel hidden">
+              <label>
+                Voice Prompt
+                <input id="ttsInstructDesign" placeholder="Calm, warm narrator with clear diction" />
+              </label>
+            </div>
+
+            <div id="modeClone" class="mode-panel hidden">
+              <label>
+                Saved Voice
+                <select id="ttsVoiceId"></select>
+              </label>
+            </div>
+
+            <label>
+              Text
+              <textarea id="ttsText" rows="5" placeholder="Type text to synthesize..."></textarea>
+            </label>
+
+            <div class="row">
+              <button id="generateBtn">Generate</button>
+              <button id="cancelBtn" class="secondary" disabled>Cancel Job</button>
+            </div>
+            <div id="ttsStatus" class="muted">Idle</div>
+            <audio id="ttsPlayer" controls class="hidden"></audio>
+          </div>
+        </section>
+
+        <section class="tab" id="tab-models">
+          <h2>Models</h2>
+          <div class="card">
+            <div class="grid two">
+              <label>
+                Hugging Face token (optional)
+                <input id="downloadToken" type="password" placeholder="hf_..." />
+              </label>
+              <label>
+                Optional revision
+                <input id="downloadRevision" placeholder="main" />
+              </label>
+            </div>
+            <div id="downloadStatus" class="muted">No active downloads.</div>
+          </div>
+
+          <div class="card">
+            <h3>Available</h3>
+            <div id="availableModels"></div>
+          </div>
+
+          <div class="card">
+            <h3>Installed</h3>
+            <div id="installedModels"></div>
+          </div>
+        </section>
+
+        <section class="tab" id="tab-voices">
+          <h2>Voices</h2>
+          <div class="card">
+            <h3>Enroll Voice</h3>
+            <form id="voiceEnrollForm">
+              <div class="grid two">
+                <label>
+                  Name
+                  <input id="voiceName" required />
+                </label>
+                <label>
+                  Audio File
+                  <input id="voiceAudio" type="file" accept="audio/*" required />
+                </label>
+              </div>
+              <label>
+                Transcript
+                <textarea id="voiceTranscript" rows="3" placeholder="What is said in the clip"></textarea>
+              </label>
+              <button type="submit">Save Voice</button>
+            </form>
+          </div>
+          <div class="card">
+            <h3>Voice Library</h3>
+            <div id="voiceList"></div>
+          </div>
+        </section>
+
+        <section class="tab" id="tab-outputs">
+          <h2>Outputs</h2>
+          <div class="card">
+            <div class="row">
+              <button id="refreshOutputsBtn" class="secondary">Refresh</button>
+              <button id="zipOutputsBtn">Download ZIP</button>
+            </div>
+            <div id="outputList"></div>
+          </div>
+        </section>
+
+        <section class="tab" id="tab-settings">
+          <h2>Settings</h2>
+          <form id="settingsForm" class="card">
+            <div class="grid two">
+              <label>
+                Default Model Tier
+                <select id="settingTier">
+                  <option value="Lite">Lite</option>
+                  <option value="Pro">Pro</option>
+                </select>
+              </label>
+              <label>
+                Save Outputs
+                <select id="settingSaveOutputs">
+                  <option value="true">Enabled</option>
+                  <option value="false">Disabled</option>
+                </select>
+              </label>
+            </div>
+
+            <div class="grid two">
+              <label>
+                Persist HF Token
+                <select id="settingPersistToken">
+                  <option value="false">No</option>
+                  <option value="true">Yes</option>
+                </select>
+              </label>
+              <label>
+                Hugging Face Token
+                <input id="settingHFToken" type="password" placeholder="hf_..." />
+              </label>
+            </div>
+
+            <label>
+              Store raw text in output metadata
+              <select id="settingLogRawText">
+                <option value="false">No (hash only)</option>
+                <option value="true">Yes</option>
+              </select>
+            </label>
+
+            <button type="submit">Save Settings</button>
+            <div id="settingsStatus" class="muted"></div>
+          </form>
+        </section>
+      </main>
+    </div>
+
+    <script src="/static/app.js" defer></script>
+  </body>
+</html>

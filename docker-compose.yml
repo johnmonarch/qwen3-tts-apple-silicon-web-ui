@@ -1,0 +1,17 @@
+services:
+  ui:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: qwen3_tts_ui
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:7860:7860"
+    environment:
+      WORKER_URL: "http://host.docker.internal:7861"
+      APP_HOST: "0.0.0.0"
+      APP_PORT: "7860"
+    volumes:
+      - ./data:/app/data
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

@@ -1,0 +1,12 @@
+.git
+.gitignore
+.venv
+.worker-venv
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+outputs
+voices
+models
+data
