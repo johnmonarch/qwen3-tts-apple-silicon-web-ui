@@ -13,7 +13,7 @@ MLX needs native macOS/Metal. Docker Desktop runs Linux containers, so inference
 ## Quick Start (copy/paste)
 
 ```bash
-cd /Users/monarch/Documents/qwen3-tts-apple-silicon
+cd /path/to/qwen3-tts-apple-silicon
 brew install ffmpeg
 ./scripts/install_everything.sh
 ```
@@ -41,7 +41,7 @@ Important on Apple Silicon:
 ### 2) Go to this repo
 
 ```bash
-cd /Users/monarch/Documents/qwen3-tts-apple-silicon
+cd /path/to/qwen3-tts-apple-silicon
 ```
 
 ### 3) Ensure scripts are executable (safe to run)
@@ -87,21 +87,21 @@ Open [http://127.0.0.1:7860](http://127.0.0.1:7860).
 Start app stack:
 
 ```bash
-cd /Users/monarch/Documents/qwen3-tts-apple-silicon
+cd /path/to/qwen3-tts-apple-silicon
 ./scripts/start_all.sh
 ```
 
 Stop app stack:
 
 ```bash
-cd /Users/monarch/Documents/qwen3-tts-apple-silicon
+cd /path/to/qwen3-tts-apple-silicon
 ./scripts/stop_all.sh
 ```
 
 ## One-command first install + start
 
 ```bash
-cd /Users/monarch/Documents/qwen3-tts-apple-silicon
+cd /path/to/qwen3-tts-apple-silicon
 ./scripts/install_everything.sh
 ```
 
