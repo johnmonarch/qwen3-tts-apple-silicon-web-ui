@@ -151,7 +151,10 @@ def start_model_download(request: DownloadRequest) -> dict[str, str]:
         raise HTTPException(status_code=404, detail="Unknown model set")
 
     settings = settings_manager.get()
-    token = request.token or os.getenv("HF_TOKEN") or settings.get("hf_token")
+    request_token = request.token.strip() if isinstance(request.token, str) else request.token
+    env_token = (os.getenv("HF_TOKEN") or "").strip()
+    settings_token = str(settings.get("hf_token") or "").strip()
+    token = request_token or env_token or settings_token or None
     job_id = download_manager.start_download(
         model_set_id=request.model_set_id,
         revision=request.revision,

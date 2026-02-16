@@ -94,13 +94,17 @@ class DownloadManager:
         self._update_progress(job_id, message=f"Fetching file list from {repo_id}")
 
         try:
-            api = HfApi(token=token)
+            auth_token: str | bool = False
+            if isinstance(token, str) and token.strip():
+                auth_token = token.strip()
+
+            api = HfApi(token=auth_token)
             files = api.list_repo_files(repo_id=repo_id, repo_type="model", revision=revision)
             model_info = api.model_info(
                 repo_id=repo_id,
                 revision=revision,
                 files_metadata=True,
-                token=token,
+                token=auth_token,
             )
 
             if not files:
@@ -141,7 +145,7 @@ class DownloadManager:
                     filename=file_name,
                     repo_type="model",
                     revision=revision,
-                    token=token,
+                    token=auth_token,
                     local_dir=str(model_dir),
                 )
 
