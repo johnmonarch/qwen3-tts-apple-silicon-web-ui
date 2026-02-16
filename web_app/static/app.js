@@ -34,6 +34,97 @@ function setStatus(id, message, isError = false) {
   el.style.color = isError ? "#9b3028" : "";
 }
 
+function formatBytes(bytes) {
+  const value = Number(bytes || 0);
+  if (!Number.isFinite(value) || value <= 0) return "0 B";
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  let i = 0;
+  let n = value;
+  while (n >= 1024 && i < units.length - 1) {
+    n /= 1024;
+    i += 1;
+  }
+  return `${n.toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
+}
+
+function formatRate(bps) {
+  const n = Number(bps || 0);
+  if (!Number.isFinite(n) || n <= 0) return "-";
+  return `${formatBytes(n)}/s`;
+}
+
+function formatEta(seconds) {
+  const n = Number(seconds);
+  if (!Number.isFinite(n) || n < 0) return "-";
+  const mins = Math.floor(n / 60);
+  const secs = Math.floor(n % 60);
+  if (mins <= 0) return `${secs}s`;
+  return `${mins}m ${secs}s`;
+}
+
+function resetDownloadUi(message = "No active downloads.") {
+  setStatus("downloadStatus", message);
+  const bar = $("downloadProgress");
+  if (bar) {
+    bar.value = 0;
+    bar.classList.add("hidden");
+  }
+  const details = $("downloadDetails");
+  if (details) {
+    details.textContent = "";
+    details.style.color = "";
+  }
+}
+
+function renderDownloadUi(status) {
+  const progress = status.progress || {};
+  const failed = status.status === "failed";
+  const done = status.status === "done";
+
+  const percent = Number(progress.percent || 0);
+  const filesDone = Number(progress.files_done || 0);
+  const filesTotal = Number(progress.files_total || 0);
+  const bytesDone = Number(progress.bytes_downloaded || 0);
+  const bytesTotal = Number(progress.bytes_total || 0);
+  const rate = Number(progress.download_rate_bps || 0);
+
+  const headlineParts = [status.status.toUpperCase(), `${percent.toFixed(1)}%`];
+  if (filesTotal > 0) {
+    headlineParts.push(`${filesDone}/${filesTotal} files`);
+  }
+  if (rate > 0) {
+    headlineParts.push(formatRate(rate));
+  }
+  setStatus("downloadStatus", headlineParts.join(" | "), failed);
+
+  const detailParts = [];
+  if (progress.message) detailParts.push(progress.message);
+  if (progress.last_file) detailParts.push(`File: ${progress.last_file}`);
+  if (bytesTotal > 0) {
+    detailParts.push(`${formatBytes(bytesDone)} / ${formatBytes(bytesTotal)}`);
+  } else if (bytesDone > 0) {
+    detailParts.push(`${formatBytes(bytesDone)} downloaded`);
+  }
+  if (progress.eta_seconds !== null && progress.eta_seconds !== undefined && !done) {
+    detailParts.push(`ETA ${formatEta(progress.eta_seconds)}`);
+  }
+  if (failed && status.error) {
+    detailParts.push(`Error: ${status.error}`);
+  }
+
+  const details = $("downloadDetails");
+  if (details) {
+    details.textContent = detailParts.join(" • ");
+    details.style.color = failed ? "#9b3028" : "";
+  }
+
+  const bar = $("downloadProgress");
+  if (bar) {
+    bar.classList.remove("hidden");
+    bar.value = Math.max(0, Math.min(100, percent));
+  }
+}
+
 function switchTab(tabName) {
   document.querySelectorAll(".tab-btn").forEach((btn) => {
     btn.classList.toggle("active", btn.dataset.tab === tabName);
@@ -236,7 +327,15 @@ async function startDownload(modelSetId) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
-
+    renderDownloadUi({
+      status: "queued",
+      progress: {
+        percent: 0,
+        files_done: 0,
+        files_total: 0,
+        message: "Queued",
+      },
+    });
     pollDownload(result.job_id);
   } catch (error) {
     setStatus("downloadStatus", error.message, true);
@@ -251,16 +350,11 @@ function pollDownload(jobId) {
   state.downloadPollTimer = setInterval(async () => {
     try {
       const status = await fetchJSON(`/api/models/download/${jobId}`);
-      const progress = status.progress || {};
-      const text = `${status.status.toUpperCase()} | ${progress.percent || 0}% | ${progress.files_done || 0}/${progress.files_total || 0} files`;
-      setStatus("downloadStatus", text, status.status === "failed");
+      renderDownloadUi(status);
 
       if (status.status === "done" || status.status === "failed") {
         clearInterval(state.downloadPollTimer);
         state.downloadPollTimer = null;
-        if (status.status === "failed") {
-          setStatus("downloadStatus", `FAILED: ${status.error || "Unknown error"}`, true);
-        }
         await loadModels();
       }
     } catch (error) {
@@ -681,6 +775,7 @@ function wireEvents() {
 async function init() {
   wireEvents();
   updateModePanel();
+  resetDownloadUi();
 
   await Promise.all([
     loadHealth(),

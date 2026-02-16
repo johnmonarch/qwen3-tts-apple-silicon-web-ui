@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import threading
+import time
 import uuid
 from pathlib import Path
 from typing import Any
@@ -30,10 +31,13 @@ class DownloadManager:
                 "percent": 0,
                 "files_total": 0,
                 "files_done": 0,
+                "bytes_total": 0,
                 "bytes_downloaded": 0,
-                "eta": None,
+                "download_rate_bps": 0.0,
+                "eta_seconds": None,
                 "last_file": None,
                 "message": "Queued",
+                "started_at": now_iso(),
             },
             "error": None,
         }
@@ -92,6 +96,12 @@ class DownloadManager:
         try:
             api = HfApi(token=token)
             files = api.list_repo_files(repo_id=repo_id, repo_type="model", revision=revision)
+            model_info = api.model_info(
+                repo_id=repo_id,
+                revision=revision,
+                files_metadata=True,
+                token=token,
+            )
 
             if not files:
                 self._update(job_id, status="failed", error="Repository contains no files")
@@ -99,11 +109,33 @@ class DownloadManager:
 
             files = [name for name in files if not name.endswith(".gitattributes")]
             total_files = len(files)
-            downloaded_bytes = 0
 
-            self._update_progress(job_id, files_total=total_files, message="Starting download")
+            file_size_map: dict[str, int] = {}
+            for sibling in (model_info.siblings or []):
+                path = getattr(sibling, "rfilename", None)
+                size = getattr(sibling, "size", None)
+                if path and isinstance(size, int) and size > 0:
+                    file_size_map[path] = size
+
+            total_expected_bytes = sum(file_size_map.get(file_name, 0) for file_name in files)
+            downloaded_bytes = 0
+            started_at = time.monotonic()
+
+            self._update_progress(
+                job_id,
+                files_total=total_files,
+                bytes_total=total_expected_bytes,
+                message="Starting download",
+            )
 
             for index, file_name in enumerate(files, start=1):
+                self._update_progress(
+                    job_id,
+                    files_done=index - 1,
+                    last_file=file_name,
+                    message=f"Downloading {file_name}",
+                )
+
                 resolved_path = hf_hub_download(
                     repo_id=repo_id,
                     filename=file_name,
@@ -116,14 +148,28 @@ class DownloadManager:
                 try:
                     downloaded_bytes += Path(resolved_path).stat().st_size
                 except OSError:
-                    pass
+                    downloaded_bytes += file_size_map.get(file_name, 0)
 
-                percent = int((index / total_files) * 100)
+                elapsed = max(time.monotonic() - started_at, 1e-6)
+                download_rate_bps = float(downloaded_bytes) / elapsed
+                percent_by_files = (index / total_files) * 100.0
+                percent_by_bytes = (
+                    (downloaded_bytes / total_expected_bytes) * 100.0 if total_expected_bytes > 0 else percent_by_files
+                )
+                percent = round(max(percent_by_files, percent_by_bytes), 1)
+                eta_seconds = None
+                if total_expected_bytes > 0 and download_rate_bps > 0:
+                    remaining = max(total_expected_bytes - downloaded_bytes, 0)
+                    eta_seconds = round(remaining / download_rate_bps, 1)
+
                 self._update_progress(
                     job_id,
                     percent=percent,
                     files_done=index,
                     bytes_downloaded=downloaded_bytes,
+                    bytes_total=total_expected_bytes,
+                    download_rate_bps=round(download_rate_bps, 1),
+                    eta_seconds=eta_seconds,
                     last_file=file_name,
                     message="Downloading",
                 )
@@ -135,7 +181,15 @@ class DownloadManager:
                 return
 
             self._update(job_id, status="done")
-            self._update_progress(job_id, percent=100, message="Download completed")
+            self._update_progress(
+                job_id,
+                percent=100.0,
+                files_done=total_files,
+                bytes_downloaded=downloaded_bytes,
+                bytes_total=total_expected_bytes,
+                eta_seconds=0.0,
+                message="Download completed",
+            )
         except HfHubHTTPError as exc:
             reason = str(exc).split("\n", 1)[0]
             self._update(job_id, status="failed", error=reason)
